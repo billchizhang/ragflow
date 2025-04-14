@@ -10,12 +10,3 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-
-.App {
-  text-align: center;
-  padding: 2rem;
-}
-
-h1 {
-  color: #333;
-}

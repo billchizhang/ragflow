@@ -88,7 +88,9 @@ const Login = () => {
     <div className="min-h-screen bg-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       {/* Header section with logo/title */}
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h1 className="text-2xl font-bold text-gray-800">Asireon AI</h1>
+        <h2 className="text-center text-3xl font-extrabold text-gray-900">
+          Logen AI
+        </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
           Sign in to your account
         </p>

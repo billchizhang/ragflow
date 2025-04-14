@@ -1,98 +1,41 @@
 /**
  * Database Configuration Module
  * 
- * This module handles the Azure SQL Database connection and schema initialization.
+ * This module handles the MySQL database connection and schema initialization.
  * It creates a connection pool for efficient database operations and
  * provides functions to initialize the database schema.
  */
 
-const { Connection, Request } = require('tedious');
-const { config } = require('dotenv');
-config();
+const mysql = require('mysql2/promise');
+require('dotenv').config();
 
 /**
- * Azure SQL Database Configuration
+ * MySQL Connection Pool
  * 
- * Creates a connection configuration for Azure SQL Database using environment variables.
+ * Creates a pool of connections to the MySQL database using configuration from environment variables.
+ * Using a connection pool improves performance by reusing connections rather than creating new ones.
  * 
  * Configuration:
- * - server: Azure SQL server name (from DB_HOST env)
- * - authentication: SQL authentication with username and password
- * - options: Database configuration options
- *   - database: Database name (from DB_NAME env)
- *   - encrypt: Enable encryption
- *   - trustServerCertificate: Trust server certificate
- *   - rowCollectionOnDone: Return rows as collections
- *   - useColumnNames: Use column names in results
+ * - host: Database server hostname (from DB_HOST env or defaults to 'localhost')
+ * - user: Database username (from DB_USER env or defaults to 'root')
+ * - password: Database password (from DB_PASSWORD env or defaults to 'password')
+ * - database: Database name (from DB_NAME env or defaults to 'logen_db')
+ * - waitForConnections: Whether to wait for connections when the pool is full
+ * - connectionLimit: Maximum number of connections in the pool
+ * - queueLimit: Maximum number of connection requests to queue
  */
-const dbConfig = {
-  server: process.env.DB_HOST,
-  authentication: {
-    type: 'default',
-    options: {
-      userName: process.env.DB_USER,
-      password: process.env.DB_PASSWORD
-    }
-  },
-  options: {
-    database: process.env.DB_NAME,
-    encrypt: true,
-    trustServerCertificate: true,
-    rowCollectionOnDone: true,
-    useColumnNames: true
-  }
-};
-
-/**
- * Create Database Connection
- * 
- * Creates a connection to Azure SQL Database
- * 
- * @returns {Promise<Connection>} - Resolves with the database connection
- */
-async function createConnection() {
-  return new Promise((resolve, reject) => {
-    const connection = new Connection(dbConfig);
-    connection.on('connect', (err) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(connection);
-      }
-    });
-    connection.connect();
-  });
-}
-
-/**
- * Execute SQL Query
- * 
- * Executes a SQL query and returns the results
- * 
- * @param {string} query - SQL query to execute
- * @param {Array} params - Query parameters
- * @returns {Promise<Array>} - Resolves with query results
- */
-async function executeQuery(query, params = []) {
-  const connection = await createConnection();
-  return new Promise((resolve, reject) => {
-    const request = new Request(query, (err, rowCount, rows) => {
-      connection.close();
-      if (err) {
-        reject(err);
-      } else {
-        resolve(rows);
-      }
-    });
-
-    // Add parameters if provided
-    params.forEach(param => {
-      request.addParameter(param.name, param.type, param.value);
-    });
-
-    connection.execSql(request);
-  });
-}
+const pool = mysql.createPool({
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || 'password',
+  database: process.env.DB_NAME || 'logen_db',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+  connectTimeout: 30000, // Increased timeout for connections
+  trace: true, // Stack traces for debugging
+  multipleStatements: true // Allow multiple statements in one query
+});
 
 /**
  * Test Database Connection
@@ -103,13 +46,13 @@ async function executeQuery(query, params = []) {
  */
 async function testConnection() {
   try {
-    const connection = await createConnection();
+    const conn = await pool.getConnection();
     console.log('Database connection successful');
-    connection.close();
+    conn.release();
     return true;
   } catch (error) {
     console.error('Database connection failed:', error.message);
-    console.error('Please check your database configuration and ensure the Azure SQL server is accessible.');
+    console.error('Please check your database configuration and ensure the MySQL server is running.');
     return false;
   }
 }
@@ -136,34 +79,42 @@ async function initializeDb() {
     }
 
     // Create users table if it doesn't exist
-    await executeQuery(`
-      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'users')
-      BEGIN
-        CREATE TABLE users (
-          id INT IDENTITY(1,1) PRIMARY KEY,
-          email NVARCHAR(255) NOT NULL UNIQUE,
-          password NVARCHAR(255) NOT NULL,
-          first_name NVARCHAR(100),
-          last_name NVARCHAR(100),
-          created_at DATETIME2 DEFAULT GETDATE(),
-          updated_at DATETIME2 DEFAULT GETDATE()
-        )
-      END
+    // This table stores user authentication and profile information
+    // Fields:
+    // - id: Unique identifier (auto-incremented)
+    // - email: User's email address (must be unique)
+    // - password: Bcrypt-hashed password
+    // - first_name, last_name: User's name
+    // - created_at, updated_at: Timestamps for record creation and updates
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        first_name VARCHAR(100),
+        last_name VARCHAR(100),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
     `);
 
     // Create password_reset_tokens table if it doesn't exist
-    await executeQuery(`
-      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'password_reset_tokens')
-      BEGIN
-        CREATE TABLE password_reset_tokens (
-          id INT IDENTITY(1,1) PRIMARY KEY,
-          user_id INT NOT NULL,
-          token NVARCHAR(6) NOT NULL,
-          expires_at DATETIME2 NOT NULL,
-          created_at DATETIME2 DEFAULT GETDATE(),
-          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        )
-      END
+    // This table stores temporary tokens for password reset functionality
+    // Fields:
+    // - id: Unique identifier (auto-incremented)
+    // - user_id: Foreign key to users table (cascade deletes)
+    // - token: 6-digit PIN for password reset verification
+    // - expires_at: Token expiration timestamp
+    // - created_at: Token creation timestamp
+    await pool.execute(`
+      CREATE TABLE IF NOT EXISTS password_reset_tokens (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        token VARCHAR(6) NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
     `);
 
     console.log('Database initialized successfully');
@@ -173,9 +124,9 @@ async function initializeDb() {
   }
 }
 
-// Export the database functions
+// Export the connection pool and initialization function
 module.exports = {
-  executeQuery,
+  pool,
   initializeDb,
   testConnection
 }; 

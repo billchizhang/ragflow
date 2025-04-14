@@ -17,7 +17,7 @@ const TopNav = () => {
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center h-16">
           <div className="flex-shrink-0 w-48">
-            <h1 className="text-2xl font-bold text-gray-800">Asireon AI</h1>
+            <h1 className="text-2xl font-bold text-gray-800">Logen AI</h1>
           </div>
           <nav className="flex-1 flex justify-center space-x-8">
             <NavLink

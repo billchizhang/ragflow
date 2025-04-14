@@ -5,7 +5,7 @@ const Sidebar = () => {
   return (
     <div className="w-64 bg-white shadow-md">
       <div className="p-4">
-        <h1 className="text-2xl font-bold text-gray-800">Asireon AI</h1>
+        <h1 className="text-2xl font-bold text-gray-800">Logen AI</h1>
       </div>
       <nav className="mt-4 flex flex-col space-y-1">
         <NavLink

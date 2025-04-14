@@ -30,7 +30,9 @@ RUN apk add --no-cache \
     # For bcrypt compilation
     python3 \
     make \
-    g++
+    g++ \
+    # For MySQL
+    mysql-client
 
 # Copy built frontend assets
 COPY --from=build-frontend /app/dist ./dist
@@ -40,6 +42,9 @@ COPY --from=build-frontend /app/server ./server
 COPY --from=build-frontend /app/.env.example ./.env.example
 # Copy public assets if any
 COPY --from=build-frontend /app/public ./public
+
+# Create volume for MySQL data
+VOLUME /app/data
 
 # Expose port
 EXPOSE 5001

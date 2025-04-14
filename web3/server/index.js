@@ -4,17 +4,20 @@
  * connects to the database, and starts the server listening on the configured port.
  */
 
-const express = require('express');
-const cors = require('cors');
-const { initializeDb } = require('./config/db');
-const authRoutes = require('./routes/auth');
+import express from 'express';
+import cors from 'cors';
+import { createDatabaseConnection } from './config/database.js';
+import { passwordConfig } from './config/config.js';
+import { initializeDatabase } from './config/init-db.js';
+import authRoutes from './routes/auth.js';
+import dotenv from 'dotenv';
 
 // Load environment variables from .env file
-require('dotenv').config();
+dotenv.config();
 
 // Initialize Express application
 const app = express();
-const PORT = process.env.PORT || 5001;
+const port = process.env.PORT || 5001;
 
 // Middleware Configuration
 // Enable Cross-Origin Resource Sharing (CORS) for all routes
@@ -22,22 +25,48 @@ app.use(cors());
 // Parse incoming JSON request bodies
 app.use(express.json());
 
-// Initialize Database Connection and Schema
-// Creates required tables if they don't exist
-initializeDb();
+// Database connection
+let db;
 
-// Route Registration
-// Mount authentication routes under /api/auth prefix
-app.use('/api/auth', authRoutes);
+// Initialize database and start server
+async function startServer() {
+  try {
+    // Initialize database schema
+    await initializeDatabase();
+    
+    // Create database connection
+    db = await createDatabaseConnection(passwordConfig);
+    
+    // Route Registration
+    // Mount authentication routes under /api/auth prefix
+    app.use('/api/auth', authRoutes);
 
-// Test Route - Simple health check endpoint
-app.get('/', (req, res) => {
-  res.send('API is running...');
+    // Basic health check endpoint
+    app.get('/api/health', (req, res) => {
+      res.json({ status: 'ok', message: 'Server is running' });
+    });
+
+    // Start server
+    app.listen(port, () => {
+      console.log(`Server running on port ${port}`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+// Handle graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received. Shutting down gracefully...');
+  if (db) {
+    await db.disconnect();
+  }
+  process.exit(0);
 });
 
-// Start Server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// Start the server
+startServer();
 
-module.exports = app; // Export for testing 
+// Export for testing
+export default app; 

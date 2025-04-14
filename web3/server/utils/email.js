@@ -46,19 +46,19 @@ async function sendPasswordResetEmail(to, pin) {
   const mailOptions = {
     from: process.env.EMAIL_FROM, // Sender address from environment variables
     to, // Recipient address
-    subject: 'Logen AI - Password Reset',
+    subject: 'Asireon AI - Password Reset',
     // HTML email body with styling for better presentation
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #4A5568;">Password Reset Request</h2>
-        <p>We received a request to reset your password for your Logen AI account.</p>
+        <p>We received a request to reset your password for your Asireon AI account.</p>
         <p>Your password reset PIN is:</p>
         <div style="background-color: #EDF2F7; padding: 12px; font-size: 24px; font-weight: bold; letter-spacing: 2px; text-align: center; margin: 16px 0;">
           ${pin}
         </div>
         <p>This PIN will expire in 15 minutes.</p>
         <p>If you did not request a password reset, please ignore this email or contact support if you have concerns.</p>
-        <p style="margin-top: 24px;">Regards,<br>The Logen AI Team</p>
+        <p style="margin-top: 24px;">Regards,<br>The Asireon AI Team</p>
       </div>
     `
   };

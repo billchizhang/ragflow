@@ -1,9 +1,8 @@
 /**
- * Database Configuration Module
+ * Azure SQL Database Configuration Module
  * 
- * This module handles the Azure SQL Database connection and schema initialization.
- * It creates a connection pool for efficient database operations and
- * provides functions to initialize the database schema.
+ * This module handles the Azure SQL Database connection configuration
+ * and provides functions for database operations.
  */
 
 const { Connection, Request } = require('tedious');
@@ -16,30 +15,34 @@ config();
  * Creates a connection configuration for Azure SQL Database using environment variables.
  * 
  * Configuration:
- * - server: Azure SQL server name (from DB_HOST env)
+ * - server: Azure SQL server name (from AZURE_SQL_SERVER env)
  * - authentication: SQL authentication with username and password
  * - options: Database configuration options
- *   - database: Database name (from DB_NAME env)
+ *   - database: Database name (from AZURE_SQL_DATABASE env)
  *   - encrypt: Enable encryption
  *   - trustServerCertificate: Trust server certificate
  *   - rowCollectionOnDone: Return rows as collections
  *   - useColumnNames: Use column names in results
  */
 const dbConfig = {
-  server: process.env.DB_HOST,
+  server: process.env.AZURE_SQL_SERVER,
   authentication: {
     type: 'default',
     options: {
-      userName: process.env.DB_USER,
-      password: process.env.DB_PASSWORD
+      userName: process.env.AZURE_SQL_USER,
+      password: process.env.AZURE_SQL_PASSWORD
     }
   },
   options: {
-    database: process.env.DB_NAME,
+    database: process.env.AZURE_SQL_DATABASE,
     encrypt: true,
     trustServerCertificate: true,
     rowCollectionOnDone: true,
-    useColumnNames: true
+    useColumnNames: true,
+    connectTimeout: 30000, // 30 seconds
+    requestTimeout: 30000, // 30 seconds
+    connectionRetryInterval: 1000, // 1 second
+    maxRetriesOnTransientErrors: 3
   }
 };
 
@@ -53,13 +56,22 @@ const dbConfig = {
 async function createConnection() {
   return new Promise((resolve, reject) => {
     const connection = new Connection(dbConfig);
+    
     connection.on('connect', (err) => {
       if (err) {
+        console.error('Connection error:', err);
         reject(err);
       } else {
+        console.log('Successfully connected to Azure SQL Database');
         resolve(connection);
       }
     });
+
+    connection.on('error', (err) => {
+      console.error('Connection error:', err);
+      reject(err);
+    });
+
     connection.connect();
   });
 }
@@ -75,12 +87,15 @@ async function createConnection() {
  */
 async function executeQuery(query, params = []) {
   const connection = await createConnection();
+  
   return new Promise((resolve, reject) => {
     const request = new Request(query, (err, rowCount, rows) => {
       connection.close();
       if (err) {
+        console.error('Query execution error:', err);
         reject(err);
       } else {
+        console.log(`Query executed successfully. Rows affected: ${rowCount}`);
         resolve(rows);
       }
     });
@@ -114,68 +129,9 @@ async function testConnection() {
   }
 }
 
-/**
- * Initialize Database Schema
- * 
- * Creates the necessary database tables if they don't already exist.
- * This function is called when the server starts up.
- * 
- * Tables created:
- * 1. users - Stores user account information
- * 2. password_reset_tokens - Stores tokens for password reset functionality
- * 
- * @returns {Promise<void>}
- */
-async function initializeDb() {
-  try {
-    // First test the connection
-    const connected = await testConnection();
-    if (!connected) {
-      console.log('Skipping database initialization due to connection issues');
-      return;
-    }
-
-    // Create users table if it doesn't exist
-    await executeQuery(`
-      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'users')
-      BEGIN
-        CREATE TABLE users (
-          id INT IDENTITY(1,1) PRIMARY KEY,
-          email NVARCHAR(255) NOT NULL UNIQUE,
-          password NVARCHAR(255) NOT NULL,
-          first_name NVARCHAR(100),
-          last_name NVARCHAR(100),
-          created_at DATETIME2 DEFAULT GETDATE(),
-          updated_at DATETIME2 DEFAULT GETDATE()
-        )
-      END
-    `);
-
-    // Create password_reset_tokens table if it doesn't exist
-    await executeQuery(`
-      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'password_reset_tokens')
-      BEGIN
-        CREATE TABLE password_reset_tokens (
-          id INT IDENTITY(1,1) PRIMARY KEY,
-          user_id INT NOT NULL,
-          token NVARCHAR(6) NOT NULL,
-          expires_at DATETIME2 NOT NULL,
-          created_at DATETIME2 DEFAULT GETDATE(),
-          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        )
-      END
-    `);
-
-    console.log('Database initialized successfully');
-  } catch (error) {
-    console.error('Database initialization error:', error);
-    console.error('The server will continue to run, but database functionality will be limited.');
-  }
-}
-
-// Export the database functions
 module.exports = {
+  createConnection,
   executeQuery,
-  initializeDb,
-  testConnection
+  testConnection,
+  dbConfig
 }; 

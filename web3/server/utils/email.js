@@ -8,8 +8,11 @@
  * email service defined in environment variables.
  */
 
-const nodemailer = require('nodemailer');
-require('dotenv').config();
+import nodemailer from 'nodemailer';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 /**
  * Nodemailer Transporter
@@ -41,24 +44,24 @@ const transporter = nodemailer.createTransport({
  * @returns {Promise<object>} - Resolves with Nodemailer info object on success
  * @throws {Error} - Throws if email sending fails
  */
-async function sendPasswordResetEmail(to, pin) {
+export async function sendPasswordResetEmail(to, pin) {
   // Define email content and options
   const mailOptions = {
     from: process.env.EMAIL_FROM, // Sender address from environment variables
     to, // Recipient address
-    subject: 'Logen AI - Password Reset',
+    subject: 'Asireon AI - Password Reset',
     // HTML email body with styling for better presentation
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #4A5568;">Password Reset Request</h2>
-        <p>We received a request to reset your password for your Logen AI account.</p>
+        <p>We received a request to reset your password for your Asireon AI account.</p>
         <p>Your password reset PIN is:</p>
         <div style="background-color: #EDF2F7; padding: 12px; font-size: 24px; font-weight: bold; letter-spacing: 2px; text-align: center; margin: 16px 0;">
           ${pin}
         </div>
         <p>This PIN will expire in 15 minutes.</p>
         <p>If you did not request a password reset, please ignore this email or contact support if you have concerns.</p>
-        <p style="margin-top: 24px;">Regards,<br>The Logen AI Team</p>
+        <p style="margin-top: 24px;">Regards,<br>The Asireon AI Team</p>
       </div>
     `
   };
@@ -77,7 +80,59 @@ async function sendPasswordResetEmail(to, pin) {
   }
 }
 
-// Export functions for use in other modules
-module.exports = {
-  sendPasswordResetEmail
-}; 
+/**
+ * Send Subscription Confirmation Email
+ * 
+ * Sends an email confirming subscription purchase with authorization code.
+ * 
+ * @param {string} to - Recipient's email address
+ * @param {Object} subscriptionData - Subscription information
+ * @param {string} subscriptionData.authCode - Authorization code
+ * @param {string} subscriptionData.tierName - Subscription tier name
+ * @param {string} subscriptionData.expiryDate - Subscription expiry date
+ * @returns {Promise<object>} - Resolves with Nodemailer info object on success
+ * @throws {Error} - Throws if email sending fails
+ */
+export async function sendSubscriptionEmail(to, subscriptionData) {
+  const { authCode, tierName, expiryDate } = subscriptionData;
+  
+  // Define email content and options
+  const mailOptions = {
+    from: process.env.EMAIL_FROM, // Sender address from environment variables
+    to, // Recipient address
+    subject: `Asireon AI - Your ${tierName} Subscription`,
+    // HTML email body with styling for better presentation
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #4A5568;">Thank You for Your Purchase!</h2>
+        <p>Thank you for subscribing to Asireon AI's ${tierName} plan.</p>
+        <p>Your authorization code is:</p>
+        <div style="background-color: #EDF2F7; padding: 12px; font-size: 18px; font-weight: bold; letter-spacing: 1px; text-align: center; margin: 16px 0; font-family: monospace;">
+          ${authCode}
+        </div>
+        <p>Please use this code during registration to activate your ${tierName} subscription.</p>
+        <p>This code will expire on ${expiryDate}.</p>
+        <p>To register:</p>
+        <ol>
+          <li>Go to <a href="https://app.asireon.ai/register">app.asireon.ai/register</a></li>
+          <li>Fill in your information</li>
+          <li>Enter the authorization code when prompted</li>
+        </ol>
+        <p style="margin-top: 24px;">Regards,<br>The Asireon AI Team</p>
+      </div>
+    `
+  };
+
+  try {
+    // Attempt to send the email using the configured transporter
+    const info = await transporter.sendMail(mailOptions);
+    // Log success information
+    console.log('Email sent: %s', info.messageId);
+    return info;
+  } catch (error) {
+    // Log detailed error information for debugging
+    console.error('Error sending email:', error);
+    // Re-throw the error for handling by the calling function
+    throw error;
+  }
+} 

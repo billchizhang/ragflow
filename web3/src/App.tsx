@@ -16,7 +16,19 @@ import MainLayout from './layouts/MainLayout'
 import Login from './pages/Login'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
+import AuthCodeValidation from './pages/AuthCodeValidation'
+import Register from './pages/Register'
 import AuthContext from './contexts/AuthContext'
+import { JWT_LOCAL_STORAGE_KEY, USER_LOCAL_STORAGE_KEY } from './config'
+
+// Protected route component that redirects to login if not authenticated
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const token = localStorage.getItem(JWT_LOCAL_STORAGE_KEY)
+  if (!token) {
+    return <Navigate to="/login" replace />
+  }
+  return <>{children}</>
+}
 
 function App() {
   // Authentication state
@@ -34,8 +46,8 @@ function App() {
    */
   useEffect(() => {
     // Retrieve authentication data from localStorage
-    const token = localStorage.getItem('token')
-    const userData = localStorage.getItem('user')
+    const token = localStorage.getItem(JWT_LOCAL_STORAGE_KEY)
+    const userData = localStorage.getItem(USER_LOCAL_STORAGE_KEY)
     
     // If both token and user data exist, restore authentication state
     if (token && userData) {
@@ -59,8 +71,8 @@ function App() {
    * @param {object} userData - User profile information
    */
   const login = (token: string, userData: any) => {
-    localStorage.setItem('token', token)
-    localStorage.setItem('user', JSON.stringify(userData))
+    localStorage.setItem(JWT_LOCAL_STORAGE_KEY, token)
+    localStorage.setItem(USER_LOCAL_STORAGE_KEY, JSON.stringify(userData))
     setUser(userData)
     setIsAuthenticated(true)
   }
@@ -73,8 +85,8 @@ function App() {
    * 2. Resetting the authentication state
    */
   const logout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+    localStorage.removeItem(JWT_LOCAL_STORAGE_KEY)
+    localStorage.removeItem(USER_LOCAL_STORAGE_KEY)
     setUser(null)
     setIsAuthenticated(false)
   }
@@ -92,6 +104,8 @@ function App() {
           {/* Public routes - accessible without authentication */}
           {/* Redirect to home if already authenticated */}
           <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/" />} />
+          <Route path="/auth-code" element={!isAuthenticated ? <AuthCodeValidation /> : <Navigate to="/" />} />
+          <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/" />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           

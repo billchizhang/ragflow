@@ -45,7 +45,11 @@ module.exports = function(req, res, next) {
     
     // Attach the decoded user data to the request object
     // This makes user information available to subsequent route handlers
-    req.user = decoded.user;
+    // MSSQL uses user_id as primary key, standardize the id field for middleware consumers
+    req.user = {
+      ...decoded.user,
+      id: decoded.user.id || decoded.id // Support both formats for backward compatibility
+    };
     
     // Proceed to the next middleware or route handler
     next();

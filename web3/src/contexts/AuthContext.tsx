@@ -24,12 +24,16 @@ import { createContext } from 'react'
  * @property {string} email - User's email address
  * @property {string} firstName - User's first name
  * @property {string} lastName - User's last name
+ * @property {string} tierName - User's subscription tier name
+ * @property {boolean} isExpired - Whether the user's subscription is expired
  */
 interface User {
   id: number
   email: string
   firstName: string
   lastName: string
+  tierName?: string
+  isExpired?: boolean
 }
 
 /**

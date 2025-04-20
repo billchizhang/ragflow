@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { API_BASE_URL } from '../config'
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('')
@@ -22,8 +23,10 @@ const ForgotPassword = () => {
       setLoading(true)
       setError('')
       
+      console.log('Attempting password reset request to:', `${API_BASE_URL}/api/auth/forgot-password`)
+      
       // Make API request to request password reset
-      const response = await fetch('http://localhost:5000/api/auth/forgot-password', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -32,6 +35,8 @@ const ForgotPassword = () => {
       })
       
       const data = await response.json()
+      
+      console.log('Password reset response:', response.status, data)
       
       if (!response.ok) {
         throw new Error(data.msg || 'Failed to send reset email')
@@ -45,6 +50,7 @@ const ForgotPassword = () => {
         navigate('/reset-password', { state: { email } })
       }, 3000)
     } catch (err: any) {
+      console.error('Password reset request error:', err)
       setError(err.message || 'An error occurred')
     } finally {
       setLoading(false)

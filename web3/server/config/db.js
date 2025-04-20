@@ -1,41 +1,15 @@
 /**
  * Database Configuration Module
  * 
- * This module handles the MySQL database connection and schema initialization.
- * It creates a connection pool for efficient database operations and
- * provides functions to initialize the database schema.
+ * This module handles the Azure SQL database connection and schema initialization.
+ * It provides functions to initialize and test the database connection.
  */
 
-const mysql = require('mysql2/promise');
-require('dotenv').config();
+import sql from 'mssql';
+import dotenv from 'dotenv';
+import { sqlConfig, createDatabaseConnection } from './database.js';
 
-/**
- * MySQL Connection Pool
- * 
- * Creates a pool of connections to the MySQL database using configuration from environment variables.
- * Using a connection pool improves performance by reusing connections rather than creating new ones.
- * 
- * Configuration:
- * - host: Database server hostname (from DB_HOST env or defaults to 'localhost')
- * - user: Database username (from DB_USER env or defaults to 'root')
- * - password: Database password (from DB_PASSWORD env or defaults to 'password')
- * - database: Database name (from DB_NAME env or defaults to 'logen_db')
- * - waitForConnections: Whether to wait for connections when the pool is full
- * - connectionLimit: Maximum number of connections in the pool
- * - queueLimit: Maximum number of connection requests to queue
- */
-const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || 'password',
-  database: process.env.DB_NAME || 'logen_db',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  connectTimeout: 30000, // Increased timeout for connections
-  trace: true, // Stack traces for debugging
-  multipleStatements: true // Allow multiple statements in one query
-});
+dotenv.config();
 
 /**
  * Test Database Connection
@@ -46,13 +20,13 @@ const pool = mysql.createPool({
  */
 async function testConnection() {
   try {
-    const conn = await pool.getConnection();
+    const pool = await createDatabaseConnection();
     console.log('Database connection successful');
-    conn.release();
+    await pool.close();
     return true;
   } catch (error) {
     console.error('Database connection failed:', error.message);
-    console.error('Please check your database configuration and ensure the MySQL server is running.');
+    console.error('Please check your database configuration and ensure the Azure SQL server is accessible.');
     return false;
   }
 }
@@ -63,13 +37,10 @@ async function testConnection() {
  * Creates the necessary database tables if they don't already exist.
  * This function is called when the server starts up.
  * 
- * Tables created:
- * 1. users - Stores user account information
- * 2. password_reset_tokens - Stores tokens for password reset functionality
- * 
  * @returns {Promise<void>}
  */
 async function initializeDb() {
+  let pool;
   try {
     // First test the connection
     const connected = await testConnection();
@@ -78,55 +49,91 @@ async function initializeDb() {
       return;
     }
 
+    pool = await createDatabaseConnection();
+    
     // Create users table if it doesn't exist
-    // This table stores user authentication and profile information
-    // Fields:
-    // - id: Unique identifier (auto-incremented)
-    // - email: User's email address (must be unique)
-    // - password: Bcrypt-hashed password
-    // - first_name, last_name: User's name
-    // - created_at, updated_at: Timestamps for record creation and updates
-    await pool.execute(`
-      CREATE TABLE IF NOT EXISTS users (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        email VARCHAR(255) NOT NULL UNIQUE,
-        password VARCHAR(255) NOT NULL,
-        first_name VARCHAR(100),
-        last_name VARCHAR(100),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-      )
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Users')
+      BEGIN
+        CREATE TABLE Users (
+          user_id INT IDENTITY(1,1) PRIMARY KEY,
+          email NVARCHAR(255) NOT NULL UNIQUE,
+          password NVARCHAR(255) NOT NULL,
+          first_name NVARCHAR(100),
+          last_name NVARCHAR(100),
+          tier_id INT,
+          subscription_start DATETIME2,
+          subscription_end DATETIME2,
+          auth_code_id INT,
+          created_at DATETIME2 DEFAULT GETDATE(),
+          last_login DATETIME2,
+          CONSTRAINT UQ_Users_Email UNIQUE (email)
+        )
+      END
     `);
 
     // Create password_reset_tokens table if it doesn't exist
-    // This table stores temporary tokens for password reset functionality
-    // Fields:
-    // - id: Unique identifier (auto-incremented)
-    // - user_id: Foreign key to users table (cascade deletes)
-    // - token: 6-digit PIN for password reset verification
-    // - expires_at: Token expiration timestamp
-    // - created_at: Token creation timestamp
-    await pool.execute(`
-      CREATE TABLE IF NOT EXISTS password_reset_tokens (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT NOT NULL,
-        token VARCHAR(6) NOT NULL,
-        expires_at TIMESTAMP NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-      )
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'PasswordResetTokens')
+      BEGIN
+        CREATE TABLE PasswordResetTokens (
+          token_id INT IDENTITY(1,1) PRIMARY KEY,
+          user_id INT NOT NULL,
+          token NVARCHAR(6) NOT NULL,
+          expires_at DATETIME2 NOT NULL,
+          created_at DATETIME2 DEFAULT GETDATE(),
+          CONSTRAINT FK_PasswordResetTokens_Users FOREIGN KEY (user_id) 
+          REFERENCES Users(user_id) ON DELETE CASCADE
+        )
+      END
+    `);
+
+    // Create subscription tiers table if it doesn't exist
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'SubscriptionTiers')
+      BEGIN
+        CREATE TABLE SubscriptionTiers (
+          tier_id INT IDENTITY(1,1) PRIMARY KEY,
+          tier_name NVARCHAR(50) NOT NULL,
+          description NVARCHAR(MAX),
+          duration_days INT NOT NULL,
+          created_at DATETIME2 DEFAULT GETDATE()
+        )
+      END
+    `);
+
+    // Create auth codes table if it doesn't exist
+    await pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'AuthCodes')
+      BEGIN
+        CREATE TABLE AuthCodes (
+          code_id INT IDENTITY(1,1) PRIMARY KEY,
+          code NVARCHAR(12) NOT NULL UNIQUE,
+          tier_id INT NOT NULL,
+          is_redeemed BIT DEFAULT 0,
+          redeemed_by INT,
+          redeemed_at DATETIME2,
+          created_at DATETIME2 DEFAULT GETDATE(),
+          expires_at DATETIME2 NOT NULL,
+          CONSTRAINT FK_AuthCodes_Tiers FOREIGN KEY (tier_id) REFERENCES SubscriptionTiers(tier_id),
+          CONSTRAINT FK_AuthCodes_Users FOREIGN KEY (redeemed_by) REFERENCES Users(user_id)
+        )
+      END
     `);
 
     console.log('Database initialized successfully');
   } catch (error) {
     console.error('Database initialization error:', error);
     console.error('The server will continue to run, but database functionality will be limited.');
+  } finally {
+    if (pool) {
+      await pool.close();
+    }
   }
 }
 
-// Export the connection pool and initialization function
-module.exports = {
-  pool,
+// Export the initialization functions
+export {
   initializeDb,
   testConnection
 }; 

@@ -17,7 +17,7 @@ services:
       - DB_HOST=db
       - DB_USER=root
       - DB_PASSWORD=password
-      - DB_NAME=logen_db
+      - DB_NAME=Asireon_db
       - JWT_SECRET=your_jwt_secret_key_here
       - EMAIL_SERVICE=gmail
       - EMAIL_USER=your-email@gmail.com
@@ -35,7 +35,7 @@ services:
     restart: unless-stopped
     environment:
       - MYSQL_ROOT_PASSWORD=password
-      - MYSQL_DATABASE=logen_db
+      - MYSQL_DATABASE=Asireon_db
     volumes:
       - mysql-data:/var/lib/mysql
       - ./server/config/init.sql:/docker-entrypoint-initdb.d/init.sql

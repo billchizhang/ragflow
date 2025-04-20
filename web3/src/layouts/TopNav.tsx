@@ -1,12 +1,59 @@
-import React, { useState, useContext } from 'react'
+import React, { useState, useContext, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import AuthContext from '../contexts/AuthContext'
+import logoImg from '../assets/logo_transparent.png'
+import { API_BASE_URL, JWT_LOCAL_STORAGE_KEY } from '../config'
 
 const TopNav = () => {
   const navigate = useNavigate()
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-  const { user, logout } = useContext(AuthContext)
+  const { user, logout, isAuthenticated } = useContext(AuthContext)
+  const [userData, setUserData] = useState<{
+    firstName: string;
+    lastName: string;
+    email: string;
+    tierName?: string;
+  } | null>(null)
 
+  // Fetch real user data from the database
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!isAuthenticated) return
+      
+      try {
+        // First set data from context if available
+        if (user) {
+          setUserData(user)
+        }
+        
+        // Then fetch from API to get the most up-to-date data
+        const token = localStorage.getItem(JWT_LOCAL_STORAGE_KEY)
+        if (!token) return
+        
+        const response = await fetch(`${API_BASE_URL}/api/user/profile?id=${user?.id || 1}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          setUserData(data)
+        }
+      } catch (error) {
+        console.error('Error fetching user profile data:', error)
+        // Fall back to context data
+        if (user) {
+          setUserData(user)
+        }
+      }
+    }
+    
+    fetchUserData()
+  }, [user, isAuthenticated])
+  
   const handleLogout = () => {
     logout()
     navigate('/login')
@@ -16,8 +63,9 @@ const TopNav = () => {
     <div className="bg-white shadow-md">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center h-16">
-          <div className="flex-shrink-0 w-48">
-            <h1 className="text-2xl font-bold text-gray-800">Logen AI</h1>
+          <div className="flex-shrink-0 w-48 flex items-center">
+            <img src={logoImg} alt="Asireon AI Logo" className="h-14 w-auto mr-2" />
+            <h1 className="text-2xl font-bold text-gray-800">Asireon AI</h1>
           </div>
           <nav className="flex-1 flex justify-center space-x-8">
             <NavLink
@@ -109,12 +157,12 @@ const TopNav = () => {
               {isDropdownOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10 border">
                   <div className="px-4 py-2 border-b">
-                    <p className="text-sm font-medium text-gray-900">{user?.firstName} {user?.lastName}</p>
-                    <p className="text-sm text-gray-500">{user?.email}</p>
+                    <p className="text-sm font-medium text-gray-900">{userData?.firstName || 'User'} {userData?.lastName || ''}</p>
+                    <p className="text-sm text-gray-500">{userData?.email || user?.email || 'user@example.com'}</p>
                   </div>
                   <div className="px-4 py-2 border-b">
                     <p className="text-xs font-medium text-gray-500">Account Tier</p>
-                    <p className="text-sm font-medium text-blue-600">Premium</p>
+                    <p className="text-sm font-medium text-blue-600">{userData?.tierName || 'Premium'}</p>
                   </div>
                   <a
                     href="#"

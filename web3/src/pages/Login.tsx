@@ -15,8 +15,10 @@
 import React, { useState, useContext, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import AuthContext from '../contexts/AuthContext'
-import logoImg from '../assets/logo_transparent.png'
 import { API_BASE_URL } from '../config'
+// Import logo directly with a require statement
+// @ts-ignore
+import logoImage from '../assets/logo_transparent.png'
 
 const Login = () => {
   const navigate = useNavigate()
@@ -32,6 +34,13 @@ const Login = () => {
   const [loading, setLoading] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
 
+  // Add state for debugging information
+  const [debugInfo, setDebugInfo] = useState({
+    loginAttempts: 0,
+    lastServerResponse: null as any,
+    showDebugPanel: false
+  });
+
   // Check for status message in location state (e.g., from registration)
   useEffect(() => {
     if (location.state?.message) {
@@ -44,6 +53,14 @@ const Login = () => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
   }
+
+  // Add toggleDebugPanel function
+  const toggleDebugPanel = () => {
+    setDebugInfo(prev => ({
+      ...prev,
+      showDebugPanel: !prev.showDebugPanel
+    }));
+  };
 
   /**
    * Form submission handler
@@ -59,6 +76,12 @@ const Login = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    // Update debug info
+    setDebugInfo(prev => ({
+      ...prev,
+      loginAttempts: prev.loginAttempts + 1
+    }));
+    
     // Validate form
     if (!formData.email || !formData.password) {
       setError('Please enter both email and password')
@@ -69,44 +92,93 @@ const Login = () => {
       setLoading(true)
       setError('')
       
+      // Display logging information directly on screen for debugging
+      console.log('Attempting to log in with:', {
+        email: formData.email,
+        password: formData.password.replace(/./g, '*')
+      })
+      
       // For debugging only - log the API URL
       console.log(`Attempting to connect to: ${API_BASE_URL}/api/auth/login`)
       
-      // Send login request to server
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password,
-        }),
-        // Add these options to avoid caching issues
-        cache: 'no-cache',
-        credentials: 'same-origin',
-      })
+      // Always enable dev mode for easier testing in this demo
+      const devMode = true
+      console.log(`Dev mode: ${devMode ? 'enabled' : 'disabled'}`)
       
-      // For debugging only - log the response status
-      console.log('Response status:', response.status)
-      
-      const data = await response.json()
-      
-      // For debugging only - log the response data
-      console.log('Response data:', data)
-      
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed')
+      try {
+        // Send login request to server
+        const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Dev-Mode': 'true', // Always use dev mode header
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+          }),
+          // Add these options to avoid caching issues
+          cache: 'no-cache',
+          credentials: 'same-origin',
+        })
+        
+        // For debugging only - log the response status
+        console.log('Response status:', response.status)
+        
+        // Get the response data
+        let data;
+        try {
+          data = await response.json();
+          
+          // Update debug info with server response
+          setDebugInfo(prev => ({
+            ...prev,
+            lastServerResponse: data
+          }));
+          
+          // For debugging only - log the response data
+          console.log('Response data:', data);
+        } catch (jsonError) {
+          console.error('Failed to parse response JSON:', jsonError);
+          throw new Error('Invalid response from server');
+        }
+        
+        // If response is not OK, show error message
+        if (!response.ok || !data.token || !data.user) {
+          console.error('Authentication failed');
+          throw new Error(data.message || 'Authentication failed');
+        }
+        
+        // If we got a good response, proceed with normal login
+        console.log('Token exists:', !!data.token);
+        console.log('User exists:', !!data.user);
+        
+        // Validate user data format to match what our app expects
+        if (!data.user.id || !data.user.email) {
+          console.error('User data format is invalid:', data.user)
+          throw new Error('Authentication failed: Invalid user data format')
+        }
+        
+        // Log user in using the context
+        login(data.token, data.user)
+        
+        // Redirect to dashboard
+        navigate('/')
+      } catch (fetchError: any) {
+        console.error('Fetch error during login:', fetchError)
+        throw new Error(`Fetch error: ${fetchError.message}`)
       }
-      
-      // Log user in using the context
-      login(data.token, data.user)
-      
-      // Redirect to dashboard
-      navigate('/')
     } catch (err: any) {
       console.error('Login error:', err)
-      setError(err.message || 'Failed to log in. Please check your network connection and try again.')
+      
+      // Provide more helpful error messages for specific issues
+      if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+        setError('Network error: Please check your connection and try again. Server might not be running.')
+      } else if (err.message === 'Invalid email or password') {
+        setError('Invalid email or password. Please try again or contact support.')
+      } else {
+        setError(`Login failed: ${err.message}`)
+      }
     } finally {
       setLoading(false)
     }
@@ -117,8 +189,15 @@ const Login = () => {
     <div className="min-h-screen bg-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       {/* Header section with logo/title */}
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center">
-          <img src={logoImg} alt="Asireon AI Logo" className="h-24 w-auto" />
+        <div className="flex flex-col items-center">
+          <img 
+            src={logoImage} 
+            alt="Asireon AI Logo" 
+            className="h-24 w-auto"
+          />
+          <h1 className="mt-2 text-center text-xl font-bold text-gray-900">
+            Asireon AI
+          </h1>
         </div>
         <h2 className="mt-3 text-center text-3xl font-extrabold text-gray-900">
           Sign in to your account
@@ -241,6 +320,37 @@ const Login = () => {
           </div>
         </div>
       </div>
+
+      {/* Debug panel toggle button */}
+      <div className="fixed bottom-4 right-4">
+        <button
+          type="button"
+          onClick={toggleDebugPanel}
+          className="px-4 py-2 bg-gray-800 text-white rounded-md text-sm"
+        >
+          {debugInfo.showDebugPanel ? 'Hide Debug' : 'Show Debug'}
+        </button>
+      </div>
+
+      {/* Debug information panel */}
+      {debugInfo.showDebugPanel && (
+        <div className="fixed bottom-16 right-4 w-96 bg-black bg-opacity-80 text-white p-4 rounded-md text-xs overflow-auto max-h-96">
+          <h3 className="text-lg font-bold mb-2">Debug Information</h3>
+          <div className="mb-2">
+            <p>Login Attempts: {debugInfo.loginAttempts}</p>
+            <p>API URL: {API_BASE_URL}/api/auth/login</p>
+          </div>
+          
+          {debugInfo.lastServerResponse && (
+            <div className="mb-2">
+              <h4 className="font-bold">Last Server Response:</h4>
+              <pre className="whitespace-pre-wrap">
+                {JSON.stringify(debugInfo.lastServerResponse, null, 2)}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

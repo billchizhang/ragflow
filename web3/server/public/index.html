@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Test Page</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    button {
+      padding: 10px;
+      margin: 5px;
+      cursor: pointer;
+    }
+    pre {
+      background-color: #f5f5f5;
+      padding: 10px;
+      border-radius: 5px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>API Test Page</h1>
+  
+  <div>
+    <h2>Server Status</h2>
+    <button onclick="checkStatus()">Check Status</button>
+    <pre id="status-result">Results will appear here...</pre>
+  </div>
+
+  <div>
+    <h2>Reset Password</h2>
+    <button onclick="resetPassword()">Reset Password to Default</button>
+    <pre id="reset-result">Results will appear here...</pre>
+  </div>
+
+  <div>
+    <h2>Change Password</h2>
+    <div>
+      <label>Current Password:</label>
+      <input type="text" id="current-password" value="password" />
+    </div>
+    <div>
+      <label>New Password:</label>
+      <input type="text" id="new-password" value="newpassword123" />
+    </div>
+    <button onclick="changePassword()">Change Password</button>
+    <pre id="change-result">Results will appear here...</pre>
+  </div>
+
+  <script>
+    // Check server status
+    async function checkStatus() {
+      const resultElement = document.getElementById('status-result');
+      resultElement.textContent = 'Loading...';
+      
+      try {
+        const response = await fetch('/api/debug/status');
+        const data = await response.json();
+        resultElement.textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        resultElement.textContent = `Error: ${error.message}`;
+      }
+    }
+
+    // Reset password
+    async function resetPassword() {
+      const resultElement = document.getElementById('reset-result');
+      resultElement.textContent = 'Loading...';
+      
+      try {
+        const response = await fetch('/api/debug/reset-password');
+        const data = await response.json();
+        resultElement.textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        resultElement.textContent = `Error: ${error.message}`;
+      }
+    }
+
+    // Change password
+    async function changePassword() {
+      const currentPassword = document.getElementById('current-password').value;
+      const newPassword = document.getElementById('new-password').value;
+      const resultElement = document.getElementById('change-result');
+      
+      resultElement.textContent = 'Loading...';
+      
+      try {
+        const response = await fetch('/api/user/change-password', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer test-jwt-token'
+          },
+          body: JSON.stringify({
+            currentPassword,
+            newPassword
+          })
+        });
+        
+        const data = await response.json();
+        resultElement.textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        resultElement.textContent = `Error: ${error.message}`;
+      }
+    }
+  </script>
+</body>
+</html> 

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authorization Code Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px 0;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0 15px 0;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        pre {
+            background-color: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Authorization Code Test Page</h1>
+    
+    <section id="server-status">
+        <h2>1. Server Status</h2>
+        <p>Check if the server is running in development mode with mock data.</p>
+        <button id="check-status">Check Server Status</button>
+        <pre id="status-result">Results will appear here...</pre>
+    </section>
+    
+    <section id="generate-code">
+        <h2>2. Generate Authorization Code</h2>
+        <p>Generate a test authorization code for the mock user.</p>
+        <button id="generate-button">Generate Authorization Code</button>
+        <pre id="generate-result">Results will appear here...</pre>
+    </section>
+    
+    <section id="validate-code">
+        <h2>3. Validate Authorization Code</h2>
+        <p>Test the validation of an authorization code.</p>
+        <div>
+            <label for="auth-code">Authorization Code:</label>
+            <input type="text" id="auth-code" placeholder="Enter the authorization code">
+        </div>
+        <button id="validate-button">Validate Code</button>
+        <div id="validation-message"></div>
+        <pre id="validate-result">Results will appear here...</pre>
+    </section>
+    
+    <script>
+        // Check server status
+        document.getElementById('check-status').addEventListener('click', async () => {
+            const resultElement = document.getElementById('status-result');
+            resultElement.textContent = 'Loading...';
+            
+            try {
+                const response = await fetch('/api/debug/status');
+                const data = await response.json();
+                resultElement.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                resultElement.textContent = `Error: ${error.message}`;
+            }
+        });
+        
+        // Generate authorization code
+        document.getElementById('generate-button').addEventListener('click', async () => {
+            const resultElement = document.getElementById('generate-result');
+            resultElement.textContent = 'Generating authorization code...';
+            
+            try {
+                const response = await fetch('/api/debug/generate-auth-code');
+                const data = await response.json();
+                
+                resultElement.textContent = JSON.stringify(data, null, 2);
+                
+                // If successful, auto-fill the validation input
+                if (data.success && data.auth_code) {
+                    document.getElementById('auth-code').value = data.auth_code;
+                }
+            } catch (error) {
+                resultElement.textContent = `Error: ${error.message}`;
+            }
+        });
+        
+        // Validate authorization code
+        document.getElementById('validate-button').addEventListener('click', async () => {
+            const authCode = document.getElementById('auth-code').value.trim();
+            const resultElement = document.getElementById('validate-result');
+            const messageElement = document.getElementById('validation-message');
+            
+            // Clear previous messages
+            messageElement.className = '';
+            messageElement.textContent = '';
+            resultElement.textContent = 'Validating code...';
+            
+            if (!authCode) {
+                messageElement.className = 'error';
+                messageElement.textContent = 'Please enter an authorization code';
+                resultElement.textContent = 'Validation failed: No code provided';
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/auth/validate-code?code=${encodeURIComponent(authCode)}`);
+                const data = await response.json();
+                
+                resultElement.textContent = JSON.stringify(data, null, 2);
+                
+                if (response.ok && data.success) {
+                    messageElement.className = 'success';
+                    messageElement.textContent = 'Code validated successfully!';
+                } else {
+                    messageElement.className = 'error';
+                    messageElement.textContent = data.message || 'Code validation failed';
+                }
+            } catch (error) {
+                resultElement.textContent = `Error: ${error.message}`;
+                messageElement.className = 'error';
+                messageElement.textContent = `Error: ${error.message}`;
+            }
+        });
+        
+        // Check status on page load
+        window.addEventListener('load', () => {
+            document.getElementById('check-status').click();
+        });
+    </script>
+</body>
+</html> 

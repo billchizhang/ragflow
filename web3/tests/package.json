@@ -1,0 +1,13 @@
+{
+  "name": "web3-auth-tests",
+  "version": "1.0.0",
+  "description": "Tests for web3 authentication system",
+  "type": "module",
+  "scripts": {
+    "test": "node test-auth-code-registration.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.0.3",
+    "node-fetch": "^3.3.0"
+  }
+} 

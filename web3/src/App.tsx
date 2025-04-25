@@ -71,10 +71,16 @@ function App() {
    * @param {object} userData - User profile information
    */
   const login = (token: string, userData: any) => {
-    localStorage.setItem(JWT_LOCAL_STORAGE_KEY, token)
-    localStorage.setItem(USER_LOCAL_STORAGE_KEY, JSON.stringify(userData))
-    setUser(userData)
-    setIsAuthenticated(true)
+    console.log('Login function called with token:', token ? 'Token received' : 'No token');
+    console.log('User data:', JSON.stringify(userData));
+    
+    localStorage.setItem(JWT_LOCAL_STORAGE_KEY, token);
+    localStorage.setItem(USER_LOCAL_STORAGE_KEY, JSON.stringify(userData));
+    
+    setUser(userData);
+    setIsAuthenticated(true);
+    
+    console.log('Authentication state updated. isAuthenticated:', true);
   }
 
   /**

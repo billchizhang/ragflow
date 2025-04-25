@@ -16,7 +16,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { createDatabaseConnection } from '../config/database.js';
 import { sendPasswordResetEmail } from '../utils/email.js';
-import { registerUser, loginUser, validateAuthCode } from '../services/authService.js';
+import { registerUser, loginUser, validateAuthCode, generateDebugToken } from '../services/authService.js';
 
 // Test connection to database on module load
 (async () => {
@@ -63,7 +63,33 @@ router.post('/register', async (req, res) => {
       });
     }
     
-    // Register the user
+    // In development mode, provide a mock registration response
+    if (process.env.DEV_MODE === 'true') {
+      console.log(`[DEV MODE] Registering mock user: ${email}`);
+      
+      // Generate a unique ID based on timestamp
+      const userId = Date.now();
+      
+      // Return a mock user object
+      return res.status(201).json({
+        success: true,
+        message: 'User registered successfully',
+        user: {
+          id: userId,
+          email,
+          firstName,
+          lastName,
+          tierId: 2,
+          tierName: 'Premium',
+          subscriptionStart: new Date(),
+          subscriptionEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+          isExpired: false,
+          createdAt: new Date()
+        }
+      });
+    }
+    
+    // Register the user in production mode
     const user = await registerUser({
       email,
       password,
@@ -103,8 +129,20 @@ router.post('/register', async (req, res) => {
  * - user: User details (id, email, firstName, lastName)
  */
 router.post('/login', async (req, res) => {
+  console.log('-------- LOGIN REQUEST --------');
+  console.log('Headers:', JSON.stringify(req.headers));
+  console.log('Body:', JSON.stringify(req.body));
+  console.log('------------------------------');
+  
   try {
     const { email, password } = req.body;
+    
+    // Check if we're in development mode - but don't auto-accept credentials
+    const devMode = process.env.DEV_MODE === 'true' || process.env.NODE_ENV === 'development';
+    
+    console.log('Environment variables:');
+    console.log('DEV_MODE:', process.env.DEV_MODE);
+    console.log('NODE_ENV:', process.env.NODE_ENV);
     
     // Validate request data
     if (!email || !password) {
@@ -115,23 +153,23 @@ router.post('/login', async (req, res) => {
       });
     }
     
-    console.log(`Login attempt for email: ${email}`);
+    console.log(`Login attempt for email: ${email} (Dev mode: ${devMode ? 'enabled' : 'disabled'})`);
     
-    // Authenticate user against database
     try {
-      const authData = await loginUser({ email, password });
+      // Use the loginUser service to properly validate credentials
+      const { user, token } = await loginUser({ email, password });
       
-      console.log(`Login successful for user: ${authData.user.email} (ID: ${authData.user.id})`);
+      console.log('Login successful for user:', user.email);
       
-      // Return success with token and user data
+      // Return success with authenticated user data and token
       return res.json({
         success: true,
         message: 'Login successful',
-        token: authData.token,
-        user: authData.user
+        token: token,
+        user: user
       });
     } catch (authError) {
-      console.error(`Authentication failed for email: ${email}`, authError.message);
+      console.error('Authentication failed:', authError.message);
       
       // Return authentication error
       return res.status(401).json({
@@ -347,7 +385,29 @@ router.post('/validate-code', async (req, res) => {
       });
     }
     
-    // Validate the auth code
+    // In development mode, allow mock validation
+    if (process.env.DEV_MODE === 'true') {
+      console.log(`[DEV MODE] Validating code in mock mode: ${code}`);
+      
+      // Return mock data for testing
+      return res.json({
+        success: true,
+        message: 'Valid authorization code',
+        code: {
+          code_id: 1,
+          code: code,
+          tier_id: 2,
+          tier_name: 'Premium',
+          description: 'Premium subscription tier with all features',
+          features: ['unlimited-access', 'priority-support', 'advanced-analytics'],
+          duration_days: 365,
+          expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+          is_redeemed: false
+        }
+      });
+    }
+    
+    // Production mode - Validate the auth code in database
     const codeData = await validateAuthCode(code);
     
     res.json({
@@ -360,6 +420,52 @@ router.post('/validate-code', async (req, res) => {
     res.status(400).json({
       success: false,
       message: err.message || 'Invalid authorization code'
+    });
+  }
+});
+
+/**
+ * @route POST /api/auth/debug-token
+ * @desc Generate a debug JWT token (for development/testing only)
+ * @access Public (should be restricted in production)
+ */
+router.post('/debug-token', async (req, res) => {
+  try {
+    // Only allow in development environment
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({
+        success: false,
+        message: 'Debug endpoints are not available in production'
+      });
+    }
+
+    const { email, tierId, tierName, isExpired } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required'
+      });
+    }
+    
+    // Generate a debug token
+    const debugData = await generateDebugToken({
+      email,
+      tierId: tierId || 1,
+      tierName: tierName || 'Basic',
+      isExpired: isExpired || false
+    });
+    
+    res.json({
+      success: true,
+      message: 'Debug token generated',
+      ...debugData
+    });
+  } catch (err) {
+    console.error('Debug token generation error:', err);
+    res.status(500).json({
+      success: false,
+      message: err.message || 'Error generating debug token'
     });
   }
 });

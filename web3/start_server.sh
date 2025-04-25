@@ -7,14 +7,32 @@ cd /Users/billzhang/Documents/GitHub/ragflow/web3
 echo "Setting up environment variables for Azure SQL Database connection..."
 export NODE_ENV=production
 
-# Check if Azure SQL credentials are available
-if [ -z "$AZURE_SQL_SERVER" ] || [ -z "$AZURE_SQL_DATABASE" ] || [ -z "$AZURE_SQL_USER" ] || [ -z "$AZURE_SQL_PASSWORD" ]; then
-    echo "ERROR: Azure SQL Database credentials are not set."
-    echo "Please set the following environment variables:"
-    echo "  - AZURE_SQL_SERVER"
-    echo "  - AZURE_SQL_DATABASE"
-    echo "  - AZURE_SQL_USER"
-    echo "  - AZURE_SQL_PASSWORD"
+# Create .env file if it doesn't exist
+if [ ! -f "./server/.env" ]; then
+    echo "Creating .env file with default Azure SQL Database settings..."
+    cat > ./server/.env << EOL
+# Server Configuration
+PORT=5001
+NODE_ENV=production
+
+# JWT Configuration
+JWT_SECRET=ragflow_jwt_secret_key
+
+# Azure SQL Database Configuration
+AZURE_SQL_SERVER=your-server.database.windows.net
+AZURE_SQL_DATABASE=your_database_name
+AZURE_SQL_USER=your_database_username
+AZURE_SQL_PASSWORD=your_database_password
+AZURE_SQL_PORT=1433
+
+# Email Configuration for Password Reset
+EMAIL_SERVICE=gmail
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASSWORD=your-app-specific-password
+EMAIL_FROM=Your App <your-email@gmail.com>
+EOL
+    echo "Please update the Azure SQL Database credentials in ./server/.env"
+    echo "Then run this script again."
     exit 1
 fi
 

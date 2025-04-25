@@ -296,4 +296,88 @@ export async function validateAuthCode(code) {
       await pool.close();
     }
   }
-} 
+}
+
+/**
+ * Generate a debug JWT token for testing purposes
+ * @param {Object} data Debug user data
+ * @param {string} data.email Email for the debug token
+ * @param {number} data.tierId Optional tier ID 
+ * @param {string} data.tierName Optional tier name
+ * @param {boolean} data.isExpired Whether to generate an expired token
+ * @returns {Object} Debug token information
+ */
+export const generateDebugToken = async (data) => {
+  try {
+    const { email, tierId = 1, tierName = 'Basic', isExpired = false } = data;
+    
+    // Create user payload for JWT
+    const payload = {
+      user: {
+        id: 'debug-user-id',
+        email,
+        tier: {
+          id: tierId,
+          name: tierName
+        }
+      }
+    };
+
+    // If generating expired token, set expiration to past date
+    const expiresIn = isExpired ? '-1h' : process.env.JWT_EXPIRATION || '24h';
+    
+    // Generate token
+    const token = jwt.sign(
+      payload,
+      process.env.JWT_SECRET,
+      { expiresIn }
+    );
+    
+    return {
+      token,
+      user: {
+        id: 'debug-user-id',
+        email,
+        tier: {
+          id: tierId,
+          name: tierName
+        }
+      },
+      isExpired,
+      expiresIn
+    };
+  } catch (error) {
+    console.error('Error generating debug token:', error);
+    throw new Error('Failed to generate debug token');
+  }
+};
+
+/**
+ * Verify a JWT token
+ * @param {string} token - The JWT token to verify
+ * @returns {Object} The decoded token payload
+ * @throws {Error} If token is invalid or expired
+ */
+export const verifyToken = (token) => {
+  try {
+    if (!token) {
+      throw new Error('No token provided');
+    }
+    
+    // Verify and decode the token
+    const decoded = jwt.verify(
+      token, 
+      process.env.JWT_SECRET || 'default_jwt_secret'
+    );
+    
+    return decoded;
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      throw new Error('Token has expired');
+    }
+    if (error.name === 'JsonWebTokenError') {
+      throw new Error('Invalid token');
+    }
+    throw error;
+  }
+}; 

@@ -3,3 +3,5 @@ httpx
 requests
 numpy
 yarl 
+sqlalchemy
+alembic 

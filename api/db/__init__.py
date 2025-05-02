@@ -21,6 +21,7 @@ from strenum import StrEnum
 class StatusEnum(Enum):
     VALID = "1"
     INVALID = "0"
+    DELETED = "2"
 
 
 class UserTenantRole(StrEnum):

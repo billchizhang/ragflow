@@ -179,8 +179,16 @@ def json_loads(src, object_hook=None, object_pairs_hook=None):
                       object_pairs_hook=object_pairs_hook)
 
 
+_last_timestamp = 0
+
 def current_timestamp():
-    return int(time.time() * 1000)
+    """Get current timestamp in milliseconds, ensuring each call returns a unique value."""
+    global _last_timestamp
+    current = int(time.time() * 1000)
+    if current <= _last_timestamp:
+        current = _last_timestamp + 1
+    _last_timestamp = current
+    return current
 
 
 def timestamp_to_date(timestamp, format_string="%Y-%m-%d %H:%M:%S"):

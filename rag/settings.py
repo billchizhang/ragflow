@@ -37,6 +37,8 @@ if DOC_ENGINE == 'elasticsearch':
     ES = get_base_config("es", {})
 elif DOC_ENGINE == 'infinity':
     INFINITY = get_base_config("infinity", {"uri": "infinity:23817"})
+elif DOC_ENGINE == 'cosmos':
+    COSMOS = get_base_config("cosmos", {})
 
 if STORAGE_IMPL_TYPE in ['AZURE_SPN', 'AZURE_SAS']:
     AZURE = get_base_config("azure", {})

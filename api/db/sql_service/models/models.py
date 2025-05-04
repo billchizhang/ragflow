@@ -507,6 +507,7 @@ class Conversation(BaseModel):
         message (Column): Message history
         reference (Column): References used
         user_id (Column): User ID
+        status (Column): Status of the conversation (1: valid, 0: invalid)
     """
     __tablename__ = "conversation"
     
@@ -516,6 +517,7 @@ class Conversation(BaseModel):
     message = Column(JSONType, nullable=True)
     reference = Column(JSONType, nullable=True, default=[])
     user_id = Column(String(32), ForeignKey("user.id"), nullable=True, index=True)
+    status = Column(String(1), nullable=True, default="1", index=True)
     
     # Relationships
     dialog = relationship("Dialog", back_populates="conversations")

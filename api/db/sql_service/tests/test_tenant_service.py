@@ -104,23 +104,22 @@ class TestTenantService:
         updated_tenant = TenantService.get_by_id(session=db_session, record_id=tenant.id)
         assert updated_tenant.credit == test_tenant_data["credit"] - amount
     
-    def test_get_tenant_info(self, test_tenant_data, test_user_data, db_session):
+    def test_get_tenant_info(self, test_tenant_data, test_user, db_session):
         """Test getting tenant information."""
-        # Create user and tenant first
-        user = UserService.save(session=db_session, **test_user_data)
+        # Create tenant first
         tenant = TenantService.save(session=db_session, **test_tenant_data)
         
         # Create user-tenant relationship
         UserTenantService.save(
             session=db_session,
-            user_id=user.id,
+            user_id=test_user.id,
             tenant_id=tenant.id,
             role=UserTenantRole.OWNER.value,
-            invited_by=user.id  # User is inviting themselves
+            invited_by=test_user.id  # User is inviting themselves
         )
         
         # Get tenant info
-        tenant_info = TenantService.get_info_by(session=db_session, user_id=user.id)
+        tenant_info = TenantService.get_info_by(session=db_session, user_id=test_user.id)
         assert tenant_info is not None
         assert tenant_info.id == tenant.id
         assert tenant_info.name == tenant.name 

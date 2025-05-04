@@ -38,6 +38,7 @@ def session_context(func):
             else:
                 # Use provided session
                 result = func(*args, **kwargs)
+                session.commit()  # Commit changes even when session is provided
                 return result
         except Exception as e:
             if session:

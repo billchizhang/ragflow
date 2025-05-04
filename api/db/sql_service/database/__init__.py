@@ -10,7 +10,7 @@ from sqlalchemy.orm import sessionmaker, scoped_session
 from contextlib import contextmanager
 from functools import wraps
 
-# Use test database configuration
+# Use SQL Server configuration
 TEST_SERVER = "asireon-sql-vm.database.windows.net"
 TEST_DATABASE = "Asireon-SQL"
 TEST_USERNAME = "CloudSA7da9ee8f"
@@ -18,8 +18,8 @@ TEST_PASSWORD = "Pzt@9982$"
 TEST_PORT = 1433
 
 # Create SQLAlchemy URL for SQL Server
-database_url = f"mssql+pyodbc://{TEST_USERNAME}:Pzt%409982%24@{TEST_SERVER}:{TEST_PORT}/{TEST_DATABASE}?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes&Encrypt=yes&Connection+Timeout=30"
-engine = create_engine(database_url, pool_pre_ping=True)
+database_url = f"mssql+pyodbc://{TEST_USERNAME}:Pzt%409982%24@{TEST_SERVER}:{TEST_PORT}/{TEST_DATABASE}?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes&Encrypt=yes&Connection+Timeout=60"
+engine = create_engine(database_url, pool_pre_ping=True, connect_args={"timeout": 60})
 
 # Create session factory
 session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -93,8 +93,22 @@ def initialize_database():
         File2Document, Dialog, Conversation, InvitationCode
     )
     
-    # Create all tables
-    Base.metadata.create_all(bind=engine)
+    # Create a session to manage transactions
+    session = session_factory()
+    try:
+        # Drop all tables first
+        Base.metadata.drop_all(bind=engine)
+        
+        # Create all tables
+        Base.metadata.create_all(bind=engine)
+        
+        # Commit the changes
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        raise e
+    finally:
+        session.close()
 
 
 def get_db():

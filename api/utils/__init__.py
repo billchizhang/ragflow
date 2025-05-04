@@ -31,6 +31,7 @@ from Cryptodome.PublicKey import RSA
 from Cryptodome.Cipher import PKCS1_v1_5 as Cipher_pkcs1_v1_5
 from filelock import FileLock
 from api.constants import SERVICE_CONF
+import random
 
 from . import file_utils
 
@@ -180,15 +181,25 @@ def json_loads(src, object_hook=None, object_pairs_hook=None):
 
 
 _last_timestamp = 0
+_counter = 0
 
 def current_timestamp():
     """Get current timestamp in milliseconds, ensuring each call returns a unique value."""
-    global _last_timestamp
-    current = int(time.time() * 1000)
-    if current <= _last_timestamp:
-        current = _last_timestamp + 1
-    _last_timestamp = current
-    return current
+    global _last_timestamp, _counter
+    ns = time.time_ns()  # Get nanoseconds since epoch
+    ms = ns // 1_000_000  # Convert to milliseconds
+    ns_remainder = ns % 1_000_000  # Get remaining nanoseconds
+    timestamp = ms * 1000 + (ns_remainder // 1000)  # Combine milliseconds with microseconds
+    
+    # Ensure unique timestamp
+    if timestamp <= _last_timestamp:
+        _counter += 1
+        timestamp = _last_timestamp + _counter
+    else:
+        _counter = 0
+        _last_timestamp = timestamp
+    
+    return timestamp
 
 
 def timestamp_to_date(timestamp, format_string="%Y-%m-%d %H:%M:%S"):

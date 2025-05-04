@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Dict, Any, Type, Optional, Tuple, Union
+from beartype.typing import List, Dict, Any, Type, Optional, Tuple, Union
 from functools import wraps
 
 from sqlalchemy import desc, asc

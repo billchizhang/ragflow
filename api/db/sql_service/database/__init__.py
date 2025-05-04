@@ -5,8 +5,7 @@ for model definitions.
 """
 
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.orm import declarative_base, sessionmaker, scoped_session
 from contextlib import contextmanager
 from functools import wraps
 
@@ -18,14 +17,18 @@ TEST_PASSWORD = "Pzt@9982$"
 TEST_PORT = 1433
 
 # Create SQLAlchemy URL for SQL Server
-database_url = f"mssql+pyodbc://{TEST_USERNAME}:Pzt%409982%24@{TEST_SERVER}:{TEST_PORT}/{TEST_DATABASE}?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes&Encrypt=yes&Connection+Timeout=60"
-engine = create_engine(database_url, pool_pre_ping=True, connect_args={"timeout": 60})
+database_url = f"mssql+pyodbc://{TEST_USERNAME}:Pzt%409982%24@{TEST_SERVER}:{TEST_PORT}/{TEST_DATABASE}?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes&Encrypt=yes"
+
+# Create engine
+engine = create_engine(database_url)
 
 # Create session factory
-session_factory = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-ScopedSession = scoped_session(session_factory)
+SessionFactory = sessionmaker(bind=engine)
 
-# Base class for all models
+# Create scoped session
+Session = scoped_session(SessionFactory)
+
+# Create base class for models
 Base = declarative_base()
 
 @contextmanager
@@ -41,7 +44,7 @@ def get_db_session():
         with get_db_session() as session:
             user = session.query(User).first()
     """
-    session = session_factory()
+    session = Session()
     try:
         yield session
         session.commit()
@@ -90,11 +93,12 @@ def initialize_database():
     # Import all models to ensure they are registered with the Base
     from api.db.sql_service.models.models import (
         User, Tenant, UserTenant, Knowledgebase, Document, File,
-        File2Document, Dialog, Conversation, InvitationCode
+        File2Document, Dialog, Conversation, InvitationCode,
+        Subscription, PaymentMethod
     )
     
     # Create a session to manage transactions
-    session = session_factory()
+    session = Session()
     try:
         # Drop all tables first
         Base.metadata.drop_all(bind=engine)
@@ -124,7 +128,7 @@ def get_db():
         def get_users(db: Session = Depends(get_db)):
             return db.query(User).all()
     """
-    db = session_factory()
+    db = Session()
     try:
         yield db
     finally:

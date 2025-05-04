@@ -1,5 +1,5 @@
 import hashlib
-from typing import List, Dict, Any, Optional, Tuple
+from beartype.typing import List, Dict, Any, Optional, Tuple
 
 from sqlalchemy import and_
 from sqlalchemy.orm import Session

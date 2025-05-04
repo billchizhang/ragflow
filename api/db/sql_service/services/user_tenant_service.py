@@ -1,4 +1,4 @@
-from typing import List, Dict
+from beartype.typing import List, Dict
 
 from sqlalchemy import and_
 from sqlalchemy.orm import Session

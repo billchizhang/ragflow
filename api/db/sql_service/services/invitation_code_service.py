@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from beartype.typing import List, Dict, Any, Optional
 import time
 
 from sqlalchemy.orm import Session

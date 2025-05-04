@@ -9,7 +9,7 @@ from datetime import datetime
 import json
 from sqlalchemy import (
     BigInteger, Boolean, Column, DateTime, ForeignKey, Integer, String, 
-    Float, Text, Table, desc, asc, func, Enum
+    Float, Text, Table, desc, asc, func, Enum, JSON
 )
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import relationship
@@ -154,6 +154,7 @@ class User(BaseModel, UserMixin):
     
     # Relationships
     user_tenants = relationship("UserTenant", back_populates="user")
+    subscription = relationship("Subscription", back_populates="user", uselist=False)
     
     def get_id(self):
         """Return the unique identifier for Flask-Login."""
@@ -204,6 +205,7 @@ class Tenant(BaseModel):
     # Relationships
     user_tenants = relationship("UserTenant", back_populates="tenant")
     knowledgebases = relationship("Knowledgebase", back_populates="tenant")
+    subscription = relationship("Subscription", back_populates="tenant", uselist=False)
     
     def __str__(self):
         """String representation of the tenant."""
@@ -521,4 +523,52 @@ class Conversation(BaseModel):
     
     # Relationships
     dialog = relationship("Dialog", back_populates="conversations")
-    user = relationship("User") 
+    user = relationship("User")
+
+
+class Subscription(BaseModel):
+    """Subscription model for managing user/tenant subscriptions."""
+    __tablename__ = "subscriptions"
+
+    id = Column(String(32), primary_key=True)
+    tier = Column(String(50), nullable=False)  # e.g., "basic", "pro", "enterprise"
+    included_functions = Column(JSON, nullable=False)  # List of included features
+    price = Column(Float, nullable=False)
+    start_date = Column(DateTime, nullable=False)
+    valid_until_date = Column(DateTime, nullable=False)
+    billing_frequency = Column(String(20), nullable=False)  # e.g., "monthly", "yearly"
+    next_billing_date = Column(DateTime, nullable=False)
+    status = Column(String(20), nullable=False)  # "active", "cancelled", "expired"
+
+    # Relationships
+    user_id = Column(String(32), ForeignKey("user.id"), nullable=True)
+    tenant_id = Column(String(32), ForeignKey("tenant.id"), nullable=True)
+    user = relationship("User", back_populates="subscription")
+    tenant = relationship("Tenant", back_populates="subscription")
+    payment_method = relationship("PaymentMethod", back_populates="subscription", uselist=False)
+
+    def __repr__(self):
+        return f"<Subscription(id={self.id}, tier={self.tier}, status={self.status})>"
+
+
+class PaymentMethod(BaseModel):
+    """Payment method model for storing payment details."""
+    __tablename__ = "payment_methods"
+
+    id = Column(String(32), primary_key=True)
+    subscription_id = Column(String(32), ForeignKey("subscriptions.id"), nullable=False)
+    method = Column(String(20), nullable=False)  # e.g., "credit_card", "paypal"
+    card_number = Column(String(16), nullable=True)  # Last 4 digits only
+    card_holder_name = Column(String(100), nullable=True)
+    expiry_date = Column(String(5), nullable=True)  # MM/YY format
+    security_code = Column(String(4), nullable=True)
+    billing_address = Column(String(200), nullable=False)
+    billing_state = Column(String(50), nullable=False)
+    billing_country = Column(String(50), nullable=False)
+    billing_postal_code = Column(String(20), nullable=False)
+
+    # Relationships
+    subscription = relationship("Subscription", back_populates="payment_method")
+
+    def __repr__(self):
+        return f"<PaymentMethod(id={self.id}, method={self.method})>" 
